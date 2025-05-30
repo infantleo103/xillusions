@@ -1,0 +1,33 @@
+import { Suspense } from 'react';
+import ClientProducts from './client-products';
+import { Skeleton } from "@/components/ui/skeleton";
+
+export const metadata = {
+  title: "Product Management",
+  description: "Manage your store's products",
+};
+
+function ProductsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-12 w-full" />
+      <Skeleton className="h-64 w-full" />
+      <Skeleton className="h-96 w-full" />
+    </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold">Product Management</h1>
+        <p className="text-muted-foreground">Add, edit, and manage your store's products</p>
+      </div>
+      
+      <Suspense fallback={<ProductsSkeleton />}>
+        <ClientProducts />
+      </Suspense>
+    </div>
+  );
+}
