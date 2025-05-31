@@ -38,6 +38,7 @@ export default function AdminLoginPage() {
         } else {
           setError("Access denied. Admin privileges required.")
           localStorage.removeItem("userId")
+          localStorage.removeItem("userEmail")
         }
       } else {
         setError("Invalid email or password")

@@ -8,7 +8,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { DollarSign, Users, ShoppingBag, Package, ArrowUp, ArrowDown, Bell } from 'lucide-react'
-import { RevenueChart, SalesChart } from "./client-components"
+import { RevenueChart, SalesChart, ProductProfitTable } from "./client-components"
 
 // Removed metadata since this is now a client component
 
@@ -49,6 +49,60 @@ function StatCard({ title, value, description, icon, trend, trendValue }) {
 
 
 function RecentOrdersTable() {
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/admin/metrics');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch metrics');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.metrics.recentOrders) {
+          setOrders(data.metrics.recentOrders);
+        }
+      } catch (err) {
+        console.error('Error fetching orders data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
+
+  // Get badge style based on status
+  const getStatusBadgeStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'shipped':
+        return "bg-green-50 text-green-700 hover:bg-green-50";
+      case 'delivered':
+        return "bg-blue-50 text-blue-700 hover:bg-blue-50";
+      case 'pending':
+        return "bg-yellow-50 text-yellow-700 hover:bg-yellow-50";
+      case 'cancelled':
+        return "bg-red-50 text-red-700 hover:bg-red-50";
+      default:
+        return "bg-gray-50 text-gray-700 hover:bg-gray-50";
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(value);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -59,57 +113,52 @@ function RecentOrdersTable() {
         <CardDescription>Latest orders placed</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableCaption>A list of your recent orders.</TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">Invoice</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">INV001</TableCell>
-                <TableCell><Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">Shipped</Badge></TableCell>
-                <TableCell>John Doe</TableCell>
-                <TableCell>Credit Card</TableCell>
-                <TableCell className="text-right">$250.00</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">INV002</TableCell>
-                <TableCell><Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-50">Delivered</Badge></TableCell>
-                <TableCell>Jane Smith</TableCell>
-                <TableCell>PayPal</TableCell>
-                <TableCell className="text-right">$120.00</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">INV003</TableCell>
-                <TableCell><Badge variant="outline" className="bg-yellow-50 text-yellow-700 hover:bg-yellow-50">Pending</Badge></TableCell>
-                <TableCell>Mike Johnson</TableCell>
-                <TableCell>Credit Card</TableCell>
-                <TableCell className="text-right">$300.00</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">INV004</TableCell>
-                <TableCell><Badge variant="outline" className="bg-red-50 text-red-700 hover:bg-red-50">Cancelled</Badge></TableCell>
-                <TableCell>Sarah Williams</TableCell>
-                <TableCell>Bank Transfer</TableCell>
-                <TableCell className="text-right">$175.50</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">INV005</TableCell>
-                <TableCell><Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">Shipped</Badge></TableCell>
-                <TableCell>Robert Brown</TableCell>
-                <TableCell>Credit Card</TableCell>
-                <TableCell className="text-right">$432.25</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+        {error ? (
+          <div className="text-center text-red-500 py-8">
+            Error loading data: {error}
+          </div>
+        ) : isLoading ? (
+          <div className="text-center py-8">Loading orders...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableCaption>A list of your recent orders.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">Invoice</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.length > 0 ? (
+                  orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.invoice}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={getStatusBadgeStyle(order.status)}
+                        >
+                          {order.status || 'Processing'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{order.customer}</TableCell>
+                      <TableCell>{order.method}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(order.amount)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-4">No recent orders found</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -213,6 +262,116 @@ function ChartSkeleton() {
   )
 }
 
+// Stats Cards Component
+function StatsCards() {
+  const [metrics, setMetrics] = useState({
+    totalRevenue: "0",
+    totalProfit: "0",
+    totalProducts: 0,
+    totalUsers: 0,
+    newUsers: 0,
+    totalOrders30Days: 0,
+    revenueTrend: "0",
+    usersTrend: "0",
+    ordersTrend: "0"
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/admin/metrics');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch metrics');
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.metrics) {
+          setMetrics(data.metrics);
+        }
+      } catch (err) {
+        console.error('Error fetching metrics data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchData();
+  }, []);
+
+  // Format currency
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(value);
+  };
+
+  if (isLoading) {
+    return (
+      <>
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="col-span-4 text-center text-red-500 py-8">
+        Error loading metrics: {error}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <StatCard 
+        title="Total Revenue" 
+        value={formatCurrency(metrics.totalRevenue)} 
+        description="All time revenue" 
+        icon={<DollarSign className="h-4 w-4 text-green-600" />}
+        trend={parseFloat(metrics.revenueTrend) >= 0 ? "up" : "down"}
+        trendValue={`${Math.abs(parseFloat(metrics.revenueTrend)).toFixed(1)}% from last month`}
+      />
+      
+      <StatCard 
+        title="New Users" 
+        value={metrics.newUsers.toString()} 
+        description="Last 30 days" 
+        icon={<Users className="h-4 w-4 text-blue-600" />}
+        trend={parseFloat(metrics.usersTrend) >= 0 ? "up" : "down"}
+        trendValue={`${Math.abs(parseFloat(metrics.usersTrend)).toFixed(1)}% from last month`}
+      />
+      
+      <StatCard 
+        title="Orders" 
+        value={metrics.totalOrders30Days.toString()} 
+        description="Last 30 days" 
+        icon={<ShoppingBag className="h-4 w-4 text-purple-600" />}
+        trend={parseFloat(metrics.ordersTrend) >= 0 ? "up" : "down"}
+        trendValue={`${Math.abs(parseFloat(metrics.ordersTrend)).toFixed(1)}% from last month`}
+      />
+      
+      <StatCard 
+        title="Products" 
+        value={metrics.totalProducts.toString()} 
+        description="Total products" 
+        icon={<Package className="h-4 w-4 text-orange-600" />}
+        trend={null}
+        trendValue={null}
+      />
+    </>
+  );
+}
+
 // Main dashboard component
 const Page = () => {
   const { user, isLoading } = useAuth()
@@ -224,7 +383,7 @@ const Page = () => {
     if (!isLoading) {
       if (!user) {
         // Not logged in, redirect to login
-        router.push('/login?redirect=/admin')
+        router.push('/admin/login')
       } else if (user.role !== 'admin') {
         // Not an admin, redirect to home
         router.push('/')
@@ -260,49 +419,7 @@ const Page = () => {
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <Suspense fallback={<StatCardSkeleton />}>
-          <StatCard 
-            title="Total Revenue" 
-            value="$12,345" 
-            description="All time revenue" 
-            icon={<DollarSign className="h-4 w-4 text-green-600" />}
-            trend="up"
-            trendValue="12% from last month"
-          />
-        </Suspense>
-        
-        <Suspense fallback={<StatCardSkeleton />}>
-          <StatCard 
-            title="New Users" 
-            value="345" 
-            description="Last 30 days" 
-            icon={<Users className="h-4 w-4 text-blue-600" />}
-            trend="up"
-            trendValue="8% from last month"
-          />
-        </Suspense>
-        
-        <Suspense fallback={<StatCardSkeleton />}>
-          <StatCard 
-            title="Orders" 
-            value="1,200" 
-            description="Last 30 days" 
-            icon={<ShoppingBag className="h-4 w-4 text-purple-600" />}
-            trend="down"
-            trendValue="3% from last month"
-          />
-        </Suspense>
-        
-        <Suspense fallback={<StatCardSkeleton />}>
-          <StatCard 
-            title="Products" 
-            value="50" 
-            description="Total products" 
-            icon={<Package className="h-4 w-4 text-orange-600" />}
-            trend={null}
-            trendValue={null}
-          />
-        </Suspense>
+        <StatsCards />
       </div>
 
       {/* Charts grid */}
@@ -313,6 +430,13 @@ const Page = () => {
         
         <Suspense fallback={<ChartSkeleton />}>
           <SalesChart />
+        </Suspense>
+      </div>
+
+      {/* Product Profit Analysis */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <Suspense fallback={<ChartSkeleton />}>
+          <ProductProfitTable />
         </Suspense>
       </div>
 

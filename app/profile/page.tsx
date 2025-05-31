@@ -57,7 +57,7 @@ export default function ProfilePage() {
 
     // Load user profile data
     setProfile({
-      name: user.name || "",
+      name: user.name || `${user.firstName} ${user.lastName}`,
       email: user.email || "",
       mobile: user.mobile || "",
       address: user.address || {
@@ -91,15 +91,26 @@ export default function ProfilePage() {
     fetchOrders()
   }, [user, router])
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (user) {
-      updateUser({
-        ...user,
-        name: profile.name,
-        mobile: profile.mobile,
-        address: profile.address,
-      })
-      setIsEditing(false)
+      try {
+        const success = await updateUser({
+          ...user,
+          name: profile.name,
+          mobile: profile.mobile,
+          address: profile.address,
+        });
+        
+        if (success) {
+          setIsEditing(false);
+        } else {
+          console.error("Failed to update user profile");
+          // You could add error handling UI here
+        }
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        // You could add error handling UI here
+      }
     }
   }
 

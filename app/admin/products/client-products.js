@@ -10,18 +10,23 @@ export default function ClientProducts() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
     price: '',
-    image: ''
+    image: '',
+    category: 'general',
+    productFor: 'all',
+    stock: 0,
+    costPrice: 0
   });
 
   // Fetch products
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products');
+        const response = await fetch('/api/admin/products');
         const result = await response.json();
         
         if (result.success) {
@@ -45,7 +50,7 @@ export default function ClientProducts() {
     const { name, value } = e.target;
     setNewProduct(prev => ({
       ...prev,
-      [name]: name === 'price' ? parseFloat(value) || '' : value
+      [name]: ['price', 'stock', 'costPrice'].includes(name) ? parseFloat(value) || '' : value
     }));
   };
 
@@ -53,13 +58,27 @@ export default function ClientProducts() {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     
+    // Validate form data
+    if (!newProduct.name.trim()) {
+      setError('Product name is required');
+      return;
+    }
+    
+    if (!newProduct.price || isNaN(newProduct.price) || parseFloat(newProduct.price) <= 0) {
+      setError('Valid price is required');
+      return;
+    }
+    
     try {
-      const response = await fetch('/api/products', {
+      const response = await fetch('/api/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newProduct),
+        body: JSON.stringify({
+          ...newProduct,
+          price: parseFloat(newProduct.price)
+        }),
       });
       
       const result = await response.json();
@@ -73,21 +92,32 @@ export default function ClientProducts() {
           name: '',
           description: '',
           price: '',
-          image: ''
+          image: '',
+          category: 'general',
+          productFor: 'all',
+          stock: 0,
+          costPrice: 0
         });
+        
+        // Clear any previous errors
+        setError(null);
+        
+        // Show success message
+        setSuccess('Product added successfully!');
+        setTimeout(() => setSuccess(null), 3000); // Clear success message after 3 seconds
       } else {
         setError(result.error || 'Failed to add product');
       }
     } catch (err) {
       setError('Error connecting to the server');
-      console.error(err);
+      console.error('Add product error:', err);
     }
   };
 
   // Delete product
   const handleDeleteProduct = async (id) => {
     try {
-      const response = await fetch(`/api/products/${id}`, {
+      const response = await fetch(`/api/admin/products/${id}`, {
         method: 'DELETE',
       });
       
@@ -96,20 +126,40 @@ export default function ClientProducts() {
       if (result.success) {
         // Remove the product from the list
         setProducts(prev => prev.filter(product => product._id !== id));
+        
+        // Clear any previous errors
+        setError(null);
+        
+        // Show success message
+        setSuccess('Product deleted successfully!');
+        setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(result.error || 'Failed to delete product');
       }
     } catch (err) {
       setError('Error connecting to the server');
-      console.error(err);
+      console.error('Delete product error:', err);
     }
   };
 
   if (loading) return <div>Loading products...</div>;
-  if (error) return <div className="text-red-500">Error: {error}</div>;
 
   return (
     <div className="space-y-8">
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          Error: {error}
+        </div>
+      )}
+      
+      {/* Success Message */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          {success}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Add New Product</CardTitle>
@@ -152,6 +202,70 @@ export default function ClientProducts() {
               />
             </div>
             
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <select
+                  id="category"
+                  name="category"
+                  value={newProduct.category}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="general">General</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="clothing">Clothing</option>
+                  <option value="home">Home & Garden</option>
+                  <option value="sports">Sports</option>
+                  <option value="books">Books</option>
+                  <option value="toys">Toys</option>
+                  <option value="beauty">Beauty</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="productFor">Product For</Label>
+                <select
+                  id="productFor"
+                  name="productFor"
+                  value={newProduct.productFor}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="all">All</option>
+                  <option value="men">Men</option>
+                  <option value="women">Women</option>
+                  <option value="kids">Kids</option>
+                  <option value="customization">Customization</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock">Stock Quantity</Label>
+                <Input
+                  id="stock"
+                  name="stock"
+                  type="number"
+                  min="0"
+                  value={newProduct.stock}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="costPrice">Cost Price</Label>
+                <Input
+                  id="costPrice"
+                  name="costPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newProduct.costPrice}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="image">Image URL</Label>
               <Input
@@ -159,6 +273,7 @@ export default function ClientProducts() {
                 name="image"
                 value={newProduct.image}
                 onChange={handleInputChange}
+                placeholder="https://example.com/image.jpg"
               />
             </div>
             
@@ -179,10 +294,37 @@ export default function ClientProducts() {
             <div className="space-y-4">
               {products.map((product) => (
                 <div key={product._id} className="flex items-center justify-between border-b pb-4">
-                  <div>
-                    <h3 className="font-medium">{product.name}</h3>
-                    <p className="text-sm text-gray-500">{product.description}</p>
-                    <p className="font-bold">${product.price}</p>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4">
+                      {product.image && (
+                        <img 
+                          src={product.image} 
+                          alt={product.name}
+                          className="w-16 h-16 object-cover rounded"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div>
+                        <h3 className="font-medium">{product.name}</h3>
+                        <p className="text-sm text-gray-500">{product.description}</p>
+                        <div className="flex gap-4 text-sm">
+                          <span className="font-bold">${product.price}</span>
+                          {product.category && (
+                            <span className="text-blue-600">Category: {product.category}</span>
+                          )}
+                          {product.stock !== undefined && (
+                            <span className={product.stock > 0 ? "text-green-600" : "text-red-600"}>
+                              Stock: {product.stock}
+                            </span>
+                          )}
+                          <span className={product.inStock ? "text-green-600" : "text-red-600"}>
+                            {product.inStock ? "In Stock" : "Out of Stock"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">Edit</Button>

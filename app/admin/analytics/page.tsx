@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -138,8 +138,46 @@ const trafficSources = [
 export default function AnalyticsPage() {
   const [timePeriod, setTimePeriod] = useState<"daily" | "weekly" | "monthly">("daily")
   const [dateRange, setDateRange] = useState("last-7-days")
+  const [analyticsData, setAnalyticsData] = useState(mockData)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  const currentData = mockData[timePeriod]
+  // Fetch analytics data from the API
+  useEffect(() => {
+    async function fetchAnalyticsData() {
+      try {
+        setIsLoading(true)
+        setError(null)
+        
+        const response = await fetch(`/api/admin/analytics?timePeriod=${timePeriod}&dateRange=${dateRange}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch analytics data')
+        }
+        
+        const result = await response.json()
+        
+        if (result.success && result.data) {
+          setAnalyticsData(result.data)
+          setLastUpdated(new Date())
+        } else {
+          throw new Error(result.error || 'Failed to fetch analytics data')
+        }
+      } catch (err) {
+        console.error('Error fetching analytics data:', err)
+        setError(err.message)
+        // Fall back to mock data
+        setAnalyticsData(mockData)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    fetchAnalyticsData()
+  }, [timePeriod, dateRange])
+
+  const currentData = analyticsData[timePeriod] || mockData[timePeriod]
 
   const formatCurrency = (value: number) => `$${value.toLocaleString()}`
   const formatNumber = (value: number) => value.toLocaleString()
@@ -177,10 +215,22 @@ export default function AnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive insights into your business performance</p>
+          <p className="text-muted-foreground">
+            Comprehensive insights into your business performance
+            {lastUpdated && (
+              <span className="ml-2 text-xs text-muted-foreground">
+                (Last updated: {lastUpdated.toLocaleTimeString()})
+              </span>
+            )}
+          </p>
+          {error && (
+            <p className="text-sm text-red-500 mt-1">
+              Error: {error}. Showing fallback data.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          <Select value={dateRange} onValueChange={setDateRange}>
+          <Select value={dateRange} onValueChange={setDateRange} disabled={isLoading}>
             <SelectTrigger className="w-48">
               <Calendar className="h-4 w-4 mr-2" />
               <SelectValue />
@@ -192,7 +242,7 @@ export default function AnalyticsPage() {
               <SelectItem value="last-year">Last year</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button variant="outline" disabled={isLoading}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -202,19 +252,28 @@ export default function AnalyticsPage() {
       {/* Time Period Toggle */}
       <Card>
         <CardContent className="p-6">
-          <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as any)}>
+          <Tabs value={timePeriod} onValueChange={(value) => setTimePeriod(value as any)} disabled={isLoading}>
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="daily" className="flex items-center gap-2">
+              <TabsTrigger value="daily" className="flex items-center gap-2" disabled={isLoading}>
                 <Activity className="h-4 w-4" />
                 Daily
+                {isLoading && timePeriod === "daily" && (
+                  <span className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
               </TabsTrigger>
-              <TabsTrigger value="weekly" className="flex items-center gap-2">
+              <TabsTrigger value="weekly" className="flex items-center gap-2" disabled={isLoading}>
                 <Target className="h-4 w-4" />
                 Weekly
+                {isLoading && timePeriod === "weekly" && (
+                  <span className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
               </TabsTrigger>
-              <TabsTrigger value="monthly" className="flex items-center gap-2">
+              <TabsTrigger value="monthly" className="flex items-center gap-2" disabled={isLoading}>
                 <Zap className="h-4 w-4" />
                 Monthly
+                {isLoading && timePeriod === "monthly" && (
+                  <span className="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -383,7 +442,7 @@ export default function AnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={deviceData}
+                    data={currentData.deviceData || deviceData}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
@@ -391,7 +450,7 @@ export default function AnalyticsPage() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {deviceData.map((entry, index) => (
+                    {(currentData.deviceData || deviceData).map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -400,7 +459,7 @@ export default function AnalyticsPage() {
               </ResponsiveContainer>
             </div>
             <div className="space-y-2 mt-4">
-              {deviceData.map((device) => (
+              {(currentData.deviceData || deviceData).map((device) => (
                 <div key={device.name} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
@@ -409,7 +468,7 @@ export default function AnalyticsPage() {
                     />
                     <span className="text-sm">{device.name}</span>
                   </div>
-                  <span className="text-sm font-medium">{device.value}%</span>
+                  <span className="text-sm font-medium">{device.value.toFixed(1)}%</span>
                 </div>
               ))}
             </div>
@@ -423,11 +482,11 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {trafficSources.map((source) => (
+              {(currentData.trafficSources || trafficSources).map((source) => (
                 <div key={source.source} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{source.source}</span>
-                    <span className="text-sm text-muted-foreground">{source.percentage}%</span>
+                    <span className="text-sm text-muted-foreground">{source.percentage.toFixed(1)}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div

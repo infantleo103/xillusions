@@ -82,7 +82,10 @@ export default function AdminLayout({
   // Basic auth check at layout level
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/login?redirect=/admin')
+      router.push('/admin/login')
+    } else if (!isLoading && user && user.role !== 'admin') {
+      // If user is logged in but not an admin, redirect to login
+      router.push('/admin/login')
     }
   }, [user, isLoading, router])
 

@@ -391,7 +391,7 @@ export default function ProductsPage() {
       {/* Products Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Products ({products.length})</CardTitle>
+          <CardTitle>Products ({products?.length || 0})</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (

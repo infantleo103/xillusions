@@ -4,12 +4,13 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 
 // Define User type
 interface User {
-  _id: string
+  id: string
   firstName: string
   lastName: string
   email: string
   role: string
   mobile?: string
+  name?: string
 }
 
 interface AuthContextType {
@@ -18,6 +19,19 @@ interface AuthContextType {
   logout: () => void
   isLoading: boolean
 }
+
+// Demo admin user
+const ADMIN_USER: User = {
+  id: "1",
+  firstName: "Admin",
+  lastName: "User",
+  email: "admin@xillusions.com",
+  role: "admin",
+  name: "Admin User"
+}
+
+// Demo password - in a real app, this would be hashed and stored in a database
+const ADMIN_PASSWORD = "password123"
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -29,15 +43,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for stored user session
     const checkUserSession = async () => {
       try {
-        // Get user data from session
-        const response = await fetch('/api/user/session');
-        const data = await response.json();
+        const storedUserId = localStorage.getItem('userId')
+        const storedUserEmail = localStorage.getItem('userEmail')
         
-        if (data.success && data.user) {
-          setUser(data.user);
+        if (storedUserId && storedUserEmail) {
+          // Fetch user data from API
+          const response = await fetch('/api/user/session', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+              const userData: User = {
+                id: data.user._id,
+                firstName: data.user.firstName,
+                lastName: data.user.lastName,
+                email: data.user.email,
+                role: data.user.role,
+                name: `${data.user.firstName} ${data.user.lastName}`
+              };
+              
+              setUser(userData);
+            }
+          } else {
+            // If API call fails, clear localStorage
+            localStorage.removeItem('userId');
+            localStorage.removeItem('userEmail');
+          }
         }
       } catch (error) {
         console.error('Error checking user session:', error);
+        // Clear localStorage on error
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userEmail');
       } finally {
         setIsLoading(false);
       }
@@ -58,10 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json();
       
-      if (data.success && data.user) {
-        setUser(data.user);
+      if (data.success) {
+        const userData: User = {
+          id: data.user._id,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          email: data.user.email,
+          role: data.user.role,
+          name: `${data.user.firstName} ${data.user.lastName}`
+        };
+        
+        setUser(userData);
+        
         // Store user info in localStorage for persistence
-        localStorage.setItem('userEmail', data.user.email);
+        localStorage.setItem('userId', userData.id);
+        localStorage.setItem('userEmail', userData.email);
+        
         return true;
       }
       
@@ -72,17 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const logout = async () => {
-    try {
-      await fetch('/api/logout', {
-        method: 'POST',
-      });
-      
-      setUser(null);
-      localStorage.removeItem('userEmail');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userEmail')
   }
 
   return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
